@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Анонимный опрос</title>
+  <style>
+    :root {
+      --bg: #0a0614;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --purple: #a855f7;
+      --red: #ef4444;
+      --gold: #fbbf24;
+      --cyan: #22d3ee;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 0%, #1a0f2e 0%, #0a0614 60%);
+    }
+
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 18px;
+      text-align: center;
+      overflow-y: auto;
+    }
+    .screen.show { display: flex; }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      border-radius: 999px;
+      color: var(--purple);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 22px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: clamp(32px, 8vw, 64px);
+      font-weight: 900;
+      margin: 0 0 16px;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 0%, #a855f7 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: clamp(15px, 3vw, 18px);
+      line-height: 1.5;
+      max-width: 400px;
+      margin: 0 0 8px;
+    }
+    .tiny {
+      color: #4b5563;
+      font-size: 12px;
+      margin: 0 0 28px;
+    }
+    .btn {
+      appearance: none;
+      border: 0;
+      background: linear-gradient(135deg, #a855f7, #7c3aed);
+      color: #fff;
+      font-weight: 800;
+      font-size: 17px;
+      padding: 16px 32px;
+      border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 12px 40px rgba(168, 85, 247, 0.4);
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+    .btn:hover { box-shadow: 0 16px 50px rgba(168, 85, 247, 0.5); }
+    .btn:active { transform: translateY(1px) scale(0.99); }
+
+    .quizProgress {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: rgba(168, 85, 247, 0.15);
+    }
+    .quizProgressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #a855f7, #22d3ee);
+      transition: width 0.4s ease;
+      box-shadow: 0 0 16px rgba(168, 85, 247, 0.6);
+    }
+    .quizCounter {
+      color: var(--purple);
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      margin-bottom: 18px;
+      text-transform: uppercase;
+    }
+    .quizQ {
+      font-size: clamp(22px, 5vw, 36px);
+      font-weight: 800;
+      margin: 0 0 32px;
+      max-width: 600px;
+      line-height: 1.2;
+      animation: fadeIn 0.4s ease;
+    }
+    .quizOptions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: min(440px, 100%);
+    }
+    .quizOption {
+      appearance: none;
+      width: 100%;
+      text-align: left;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(20, 15, 35, 0.7);
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 600;
+      padding: 16px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      animation: fadeIn 0.4s ease both;
+    }
+    .quizOption:hover {
+      border-color: var(--purple);
+      background: rgba(168, 85, 247, 0.1);
+      transform: translateX(4px);
+    }
+    .quizOption:active { transform: scale(0.99); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .analysisIcon {
+      font-size: 72px;
+      margin-bottom: 16px;
+      animation: pulse 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes pulse {
+      from { opacity: 0.6; transform: scale(0.95); }
+      to   { opacity: 1;   transform: scale(1.08); }
+    }
+    .analysisTitle {
+      font-size: clamp(20px, 4vw, 28px);
+      margin: 0 0 24px;
+      font-weight: 800;
+    }
+    .analysisLog {
+      font-family: var(--mono);
+      font-size: clamp(12px, 2.6vw, 15px);
+      color: var(--cyan);
+      text-align: left;
+      width: min(560px, 100%);
+      min-height: 200px;
+      max-height: 50vh;
+      overflow-y: auto;
+      padding: 18px 20px;
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 12px;
+      line-height: 1.6;
+    }
+    .analysisLog div { animation: fadeIn 0.3s ease; }
+
+    .resultLabel {
+      font-size: clamp(15px, 3vw, 18px);
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .resultNumber {
+      font-family: var(--mono);
+      font-size: clamp(80px, 22vw, 200px);
+      font-weight: 900;
+      line-height: 1;
+      color: #fff;
+      text-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
+      transition: color 0.1s;
+    }
+    .resultUnit {
+      font-size: clamp(18px, 4vw, 24px);
+      color: var(--muted);
+      margin-top: 4px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    #scr-result.skull-mode .resultLabel,
+    #scr-result.skull-mode .resultNumber,
+    #scr-result.skull-mode .resultUnit {
+      opacity: 0;
+      transition: opacity 0.05s; /* Резкий уход текста */
+      pointer-events: none;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.3); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    /* === ANSI ART STAGE (РЕЗКИЙ ПЕРЕХОД) === */
+    .ansiStage {
+      position: fixed;
+      inset: 0;
+      background: #7a0000;
+      z-index: 55;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0s; /* 0 секунд = мгновенно */
+    }
+    .ansiStage.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .ansiArt {
+      color: #ffffff;
+      font-family: "Courier New", Courier, monospace;
+      font-size: clamp(10px, 1.8vw, 22px);
+      line-height: 1.1;
+      white-space: pre;
+      text-align: left;
+      margin: 0;
+      text-shadow: 0 0 2px rgba(255,255,255,0.5);
+    }
+
+    /* === SKULL OVERLAY (РЕЗКИЙ ПЕРЕХОД) === */
+    .skullStage {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0s; /* 0 секунд = мгновенно */
+    }
+    .skullStage.show { opacity: 1; pointer-events: auto; }
+
+    .skullWrap {
+      width: min(100%, 1200px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      animation: shakeIntense 0.15s infinite;
+    }
+
+    .skull {
+      --sk-scale: 1;
+      display: block;
+      margin: 0;
+      color: #ff3333;
+      font-family: "DejaVu Sans Mono", "Noto Sans Mono", "Courier New", ui-monospace, monospace;
+      font-size: clamp(12px, 1.2vw, 24px);
+      line-height: 1;
+      letter-spacing: 0;
+      text-align: center;
+      white-space: pre;
+      transform-origin: center center;
+      transform: scale(var(--sk-scale, 1));
+      text-shadow:
+        0 0 4px rgba(255, 60, 60, 0.85),
+        0 0 10px rgba(220, 40, 40, 0.55),
+        0 0 20px rgba(150, 20, 20, 0.35);
+      filter: drop-shadow(0 0 6px rgba(255, 0, 0, 0.4));
+    }
+
+    /* ============================================================
+       ГЛИТЧ-ЭФФЕКТЫ
+       ============================================================ */
+    .skull.glitch-jitter { animation: gJitter 0.05s steps(2, end) infinite; }
+    @keyframes gJitter {
+      0%   { translate: 0 0;       rotate: 0deg; }
+      50%  { translate: -10px 6px; rotate: -2deg; }
+      100% { translate: 10px -6px; rotate: 2deg; }
+    }
+
+    .skull.glitch-tear { animation: gTear 0.18s steps(3, end) infinite; }
+    @keyframes gTear {
+      0%   { clip-path: inset(0 0 0 0); translate: 0; }
+      15%  { clip-path: inset(10% 0 80% 0); translate: 15px 0; }
+      30%  { clip-path: inset(60% 0 20% 0); translate: -15px 0; }
+      45%  { clip-path: inset(30% 0 50% 0); translate: 20px 0; }
+      60%  { clip-path: inset(80% 0 10% 0); translate: -20px 0; }
+      75%  { clip-path: inset(0 0 0 0); translate: 0; }
+      100% { clip-path: inset(0 0 0 0); translate: 0; }
+    }
+
+    .skull.glitch-blood { animation: gBlood 0.4s ease-in-out infinite alternate; }
+    @keyframes gBlood {
+      0% { translate: 0 0; filter: drop-shadow(0 0 15px red); text-shadow: 0 0 10px red, 0 10px 20px darkred; }
+      100% { translate: 0 15px; filter: drop-shadow(0 20px 15px darkred); text-shadow: 0 0 10px red, 0 30px 20px darkred; }
+    }
+
+    .skull.glitch-split { animation: gSplit 0.15s steps(2) infinite; text-shadow: -8px 0 red, 8px 0 #00ffff; }
+    @keyframes gSplit {
+      0% { translate: 0; }
+      50% { translate: -15px 0; }
+      100% { translate: 15px 0; }
+    }
+
+    .skull.glitch-void { animation: gVoid 0.1s steps(2) infinite; }
+    @keyframes gVoid {
+      0%, 100% { filter: invert(0); }
+      50% { filter: invert(1) hue-rotate(180deg) contrast(3); }
+    }
+
+    .skull.glitch-flash { animation: gFlash 0.08s steps(2, end) infinite; }
+    @keyframes gFlash {
+      0%, 100% { color: #ff3333; text-shadow: 0 0 10px rgba(255, 0, 0, 0.5), 0 0 20px rgba(150, 0, 0, 0.3); }
+      50% { color: #ff0000; text-shadow: 0 0 14px rgba(255, 0, 0, 1), 0 0 40px rgba(255, 0, 0, 0.8), 0 0 80px rgba(255, 0, 0, 0.6); }
+    }
+
+    .skull.glitch-distort { animation: gDistort 0.08s steps(2, end) infinite; filter: hue-rotate(90deg) contrast(2) saturate(3) drop-shadow(0 0 10px rgba(255, 0, 0, 0.8)); }
+    @keyframes gDistort {
+      0%   { translate: 0 0;        rotate: 0deg; }
+      50%  { translate: -15px 8px;  rotate: -3deg; }
+      100% { translate: 15px -8px;  rotate: 3deg; }
+    }
+
+    .skull.glitch-invert { animation: gInvert 0.08s steps(2, end); filter: invert(1) drop-shadow(0 0 10px rgba(255, 0, 0, 0.8)); }
+
+    .skull.glitch-ghost {
+      text-shadow: -12px 0 0 rgba(255, 0, 0, 0.85), 12px 0 0 rgba(0, 255, 255, 0.85), -5px 0 10px rgba(255, 0, 0, 0.5), 5px 0 10px rgba(0, 255, 255, 0.5);
+      animation: gGhost 0.12s steps(2, end) infinite;
+    }
+    @keyframes gGhost {
+      0%, 100% { translate: 0 0; }
+      50%      { translate: -6px 0; }
+    }
+
+    .skull.glitch-zoom { animation: gZoom 0.12s ease-in-out infinite; }
+    @keyframes gZoom {
+      0%, 100% { scale: 1; }
+      50%      { scale: 1.1; }
+    }
+
+    .skull.glitch-slice { animation: gSlice 0.12s steps(1, end) infinite; }
+    @keyframes gSlice {
+      0%   { clip-path: inset(0 0 0 0);     translate: 0; }
+      15%  { clip-path: inset(0 0 92% 0);   translate: 10px 0; }
+      20%  { clip-path: inset(0 0 0 0);     translate: -5px 0; }
+      45%  { clip-path: inset(92% 0 0 0);   translate: -10px 0; }
+      50%  { clip-path: inset(0 0 0 0);     translate: 4px 0; }
+      75%  { clip-path: inset(40% 0 40% 0); translate: 0; }
+      80%, 100% { clip-path: inset(0 0 0 0); translate: 0; }
+    }
+
+    .skull.glitch-flip { animation: gFlip 0.1s steps(2, end) infinite; }
+    @keyframes gFlip {
+      0%, 100% { transform: scale(var(--sk-scale, 1)); }
+      50%      { transform: scale(var(--sk-scale, 1)) scaleY(-1); }
+    }
+
+    .laugh.glitch-laugh {
+      color: rgba(0, 255, 255, 0.55) !important;
+      text-shadow: 0 0 12px rgba(0, 255, 255, 0.45) !important;
+      animation: gLaugh 0.07s steps(2) infinite !important;
+    }
+    @keyframes gLaugh {
+      0%   { transform: translateX(0); }
+      50%  { transform: translateX(-4px); }
+      100% { transform: translateX(4px); }
+    }
+
+    .laugh {
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: clamp(20px, 5.5vw, 48px);
+      color: rgba(255, 50, 50, 0.5);
+      text-shadow: 0 0 8px rgba(255, 0, 0, 0.45);
+      letter-spacing: 0.08em;
+      animation: laughPulse 0.35s infinite alternate;
+      text-align: center;
+    }
+
+    @keyframes shakeIntense {
+      0%   { transform: translate(0, 0) rotate(0deg); }
+      10%  { transform: translate(-4px, -3px) rotate(-1.5deg); }
+      20%  { transform: translate(4px, 3px) rotate(1.5deg); }
+      30%  { transform: translate(-3px, 4px) rotate(-1deg); }
+      40%  { transform: translate(3px, -4px) rotate(1deg); }
+      50%  { transform: translate(-4px, 2px) rotate(-1.5deg); }
+      60%  { transform: translate(4px, -2px) rotate(1.5deg); }
+      70%  { transform: translate(-2px, 4px) rotate(-1deg); }
+      80%  { transform: translate(2px, -4px) rotate(1deg); }
+      90%  { transform: translate(-3px, 3px) rotate(-1.5deg); }
+      100% { transform: translate(3px, -3px) rotate(1.5deg); }
+    }
+
+    @keyframes laughPulse {
+      from { opacity: 0.28; transform: scale(0.99); }
+      to   { opacity: 0.38; transform: scale(1.01); }
+    }
+
+    /* Слой затемнения (сделан почти мгновенным) */
+    .transitionLayer {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      pointer-events: none;
+      background: #000;
+      opacity: 0;
+      transition: opacity 0.05s ease; /* Ускорено с 0.4s */
+    }
+    .transitionLayer.active { opacity: 1; }
+    
+    .flashEffect {
+      position: fixed;
+      inset: 0;
+      z-index: 99;
+      background: rgba(255, 255, 255, 0.1);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.1s;
+    }
+    .flashEffect.on {
+      opacity: 1;
+      transition: opacity 0.05s;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="screen show" id="scr-intro">
+    <div class="badge">Анонимно*</div>
+    <h1>Анонимный<br>тест</h1>
+    <p class="sub">Тест на основе древних рун, гороскопа и космоса. Точность 99.9%.</p>
+    <p class="tiny">*не точно</p>
+    <button class="btn" id="startBtn">Пройти тестирование</button>
+  </div>
+
+  <div class="screen" id="scr-quiz">
+    <div class="quizProgress"><div class="quizProgressBar" id="quizBar"></div></div>
+    <div class="quizCounter" id="quizCounter">Вопрос 1 из 5</div>
+    <h2 class="quizQ" id="quizQ"></h2>
+    <div class="quizOptions" id="quizOptions"></div>
+  </div>
+
+  <div class="screen" id="scr-analysis">
+    <div class="analysisIcon">🧠</div>
+    <h2 class="analysisTitle">Анализируем...</h2>
+    <div class="analysisLog" id="analysisLog"></div>
+  </div>
+
+  <div class="screen" id="scr-result">
+    <div class="resultLabel">TBD от вас в</div>
+    <div class="resultNumber" id="resultNum">—</div>
+    <div class="resultUnit">метрах</div>
+  </div>
+
+  <div class="ansiStage" id="ansiStage">
+    <pre class="ansiArt" id="ansiArt"></pre>
+  </div>
+
+  <div class="skullStage" id="skullStage">
+    <div class="skullWrap" id="skullWrap">
+      <pre class="skull" id="skullArt"></pre>
+    </div>
+    <div class="laugh" id="laughText">ХАХАХАХА</div>
+  </div>
+
+  <div class="transitionLayer" id="transLayer"></div>
+  <div class="flashEffect" id="flashLayer"></div>
+
+<script>
+
+  const QUESTIONS = [
+    { q: "Сколько тебе лет?",                       options: ["Меньше 20", "20–30", "30–40", "Столько не живут"] },
+    { q: "Сколько раз ты сегодня матерился?",        options: ["Да", "Нет"] },
+    { q: "Во сколько ты обычно ложишься спать?",           options: ["До 23:00", "23:00–01:00", "01:00–03:00", "Сон — для слабаков"] },
+    { q: "Как у тебя со спортом?",                   options: ["Каждый день", "Иногда", "По праздникам", "Спорт = травмы"] },
+    { q: "Куришь / паришь?",                         options: ["Нет", "Да"] }
+  ];
+
+  const ANALYSIS_LINES = [
+    "Считываю дату рождения...",
+    "Сверяюсь с базой данных космоса...",
+    "Запрашиваю данные у высших сил... (но никто не отвечает)",
+    "Считаю клетки в организме... 37 триллионов...",
+    "Проверяю уровень кармы...",
+    "Учитываю маты в день...",
+    "Считаю оставшуюся мешуру..."
+  ];
+
+  const ANSI_ART = `
+               ...
+             ;::::;
+           ;::::; :;
+         ;:::::'   :;
+        ;:::::;     ;.
+       ,:::::'       ;           OOO\\
+       ::::::;       ;          OOOOO\\
+       ;:::::;       ;         OOOOOOOO
+      ,;::::::;     ;'         / OOOOOOO
+    ;:::::::::'. ,,,;.        /  / DOOOOOO
+  .';:::::::::::::::::;,     /  /     DOOOO
+ ,::::::;::::::;;;;::::;,   /  /        DOOO
+;\`::::::\`'::::::;;;::::: ,#/  /          DOOO
+:\`:::::::\`;::::::;;::: ;::#  /            DOOO
+::\`:::::::\`;:::::::: ;::::# /              DOO
+\`:\`:::::::\`;:::::: ;::::::#/               DOO
+ :::\`:::::::\`;; ;:::::::::##                OO
+ ::::\`:::::::\`;::::::::;:::#                OO
+ \`:::::\`::::::::::::;'\`\`;::#                O
+  \`:::::\`::::::::;' /  / \`:#
+   ::::::\`:::::;'  /  /   \`#
+  `;
+
+  const SKULL_FRAMES = [
+`
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣶⣶⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⠻⢿⣿⡿⠿⠿⠟⠛⠛⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⡿⠛⣀⡸⠇⢀⡀⠀⠀⠀⠀⠀⠘⠛⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣤⠈⠀⠀⠀⢸⣿⣷⠀⠈⠁⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⠋⠉⠉⠉⠉⠙⢿⡿⠛⢿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⠀⢠⣶⣾⣿⣿⣿⠀⠀⠀⠀⠀⠀⢴⠀⠀⣾⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣷⠀⠀⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣀⣿⣿⣿⣿⣀⡀⠀⠀⠀⠀⠀⠀⠀⣴⣿⣿⠿⢿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠰⠀⠀⢀⣿⣿⣆⠀⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣾⣿⡿⠀⠀⠀⠀⢻⣄⣀⡀⠛⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣷⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠛⠛⠉⢻⣿⣿⣿⣿⣿⣿⣿⠏⠁⠀⠀⠀⠀⠀⠈⠙⣿⣧⣄⣀⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣶⣦⠀⠀⠀⠀⠈⣿⣿⣿⣿⣿⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⠋⣿⣿⡏⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⠀⠀⠀⠀⠀⠈⠿⢿⣿⣿⣿⣿⣷⣶⣶⣤⣶⣾⣿⣿⣿⣿⠿⠿⠋⠁⠀⠀⠀⢿⠿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠻⠿⣿⣿⣿⣿⠿⠿⠿⠛⠁⠀⠀⠀⠀⢀⣀⣀⠚⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣶⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠙⣿⣷⡀⠀⠀⠀⠀⠀⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣴⣿⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣷⡄⠀⠀⠀⠀⠀⠀⠀⣶⣶⠄⠀⣶⡦⠀⠀⠀⣤⡄⢀⣰⣿⣿⠏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠻⠿⣿⣿⣿⣿⣿⣿⣿⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣼⣿⣿⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠛⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠉⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠿⠿⠿⠟⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+`,
+`
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⣿⡿⠿⣿⣿⣿⣿⠿⠿⠿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣶⡿⠟⠀⠀⣹⣿⠏⠀⠀⠀⠀⠀⠀⠀⠸⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⢀⣀⡘⠀⠀⠀⣿⣇⣀⠀⠚⠃⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⠛⠛⠛⠛⠛⠻⣿⡿⢿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⢸⣿⡇⠀⢀⣤⣿⣿⣿⠀⠀⠀⠀⠀⠀⢀⡀⠀⠀⣿⣿⣿⣿⣿⣿⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠈⢠⣤⠉⠙⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⢸⣿⡇⠀⣿⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠈⠁⢀⣼⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⢀⣀⡀⠀⠀⣿⣧⠀⠀⢻⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠘⢿⣷⣶⣿⣿⣿⣿⣶⣶⣤⣤⣤⣤⣤⣾⡿⠛⠋⠉⠹⣿⠀⠀⠀⣤⠀⠀⠀⠀⠀⠀⢠⣿⣿⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠻⣿⣿⣿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠀⠀⠀⠀⠀⠹⣷⣶⡄⠀⠀⠀⠀⠀⣀⣿⣿⣿⣿⣿⣿⣶⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⣿⣿⣿⣿⣿⣿⣿⡀⠀⠀⠀⠀⠀⠀⠀⠈⣿⣿⣶⣶⣶⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠛⣿⣿⣿⣿⣿⣿⣿⣄⠀⠀⠀⠀⣀⣿⣿⣿⣿⣿⣿⣿⣿⠿⠿⠃⠀⢹⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠛⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠉⠉⠁⠀⠀⢀⣀⠘⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠻⣿⣿⣿⡟⠛⠛⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣶⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣶⠆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⢿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣀⠀⠀⠀⠀⠀⠀⠀⢀⡀⠀⠀⣀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⠛⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣧⣄⣀⣀⠀⠀⠀⠟⠃⠀⠈⠻⠃⠀⠀⠀⣤⣴⣿⣿⠟⠛⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⣿⣿⣿⣿⣿⣿⣿⣷⣤⣤⣤⣤⣤⣤⣶⣶⣶⣶⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠛⠛⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+`
+  ];
+
+  const PHRASES = ["ХАХАХАХА", "^-^", "<:", "esc/F11", "хехехехе", "свайпни", "0_0", "др :)"];
+  
+  const GLITCH_TYPES = [
+    { name: 'jitter',    weight: 0.7, duration: [400, 1000], speedMul: 0.25, laugh: true },
+    { name: 'rgb',       weight: 1.0, duration: [300, 700] },
+    { name: 'flash',     weight: 1.0, duration: [200, 450] },
+    { name: 'distort',   weight: 1.0, duration: [400, 800] },
+    { name: 'invert',    weight: 0.6, duration: [250, 450] },
+    { name: 'ghost',     weight: 0.8, duration: [300, 700] },
+    { name: 'zoom',      weight: 0.8, duration: [250, 600] },
+    { name: 'slice',     weight: 0.6, duration: [250, 550] },
+    { name: 'flip',      weight: 0.3, duration: [120, 280] },
+    { name: 'tear',      weight: 0.9, duration: [200, 500] },
+    { name: 'blood',     weight: 0.7, duration: [600, 1200] },
+    { name: 'split',     weight: 0.8, duration: [200, 400] },
+    { name: 'void',      weight: 0.5, duration: [150, 300] }
+  ];
+
+  const GLITCH_PROBABILITY = 0.1;
+
+  const $ = id => document.getElementById(id);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const normalizeFrame = s => s.replace(/^\n/, "").replace(/\n$/, "");
+
+  let currentQuestion = 0;
+  let aborted = false;
+
+  let skullTimer = null;
+  let skullFrameIndex = 0;
+  let skullBaseInterval = 230;
+  let glitchMultiplier = 1;
+  let glitchTimeouts = [];
+
+  async function wait(ms) {
+    await sleep(ms);
+    if (aborted) throw new Error("aborted");
+  }
+
+  function showScreen(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("show"));
+    $(id).classList.add("show");
+  }
+
+  /* ОБНОВЛЕНО: Максимально резкая смена экранов */
+  async function fadeSwap(swapCallback) {
+    if (aborted) return;
+    const trans = $("transLayer");
+    const flash = $("flashLayer");
+
+    trans.classList.add('active');
+    await sleep(400); // Было 400 мс
+
+    if (!aborted) swapCallback();
+
+    flash.classList.add('on');
+    await sleep(20); // Было 50 мс
+    flash.classList.remove('on');
+
+    await sleep(10); // Было 100 мс
+    trans.classList.remove('active');
+    await sleep(30); // Было 400 мс
+  }
+
+  function requestFullscreenSafe() {
+    const el = document.documentElement;
+    if (document.fullscreenElement || !el.requestFullscreen) return;
+    el.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+  }
+
+  function renderQuestion() {
+    const q = QUESTIONS[currentQuestion];
+    $("quizCounter").textContent = `Вопрос ${currentQuestion + 1} из ${QUESTIONS.length}`;
+    $("quizBar").style.width = `${(currentQuestion / QUESTIONS.length) * 100}%`;
+
+    const qEl = $("quizQ");
+    qEl.textContent = q.q;
+    qEl.style.animation = "none";
+    void qEl.offsetWidth;
+    qEl.style.animation = "";
+
+    const opts = $("quizOptions");
+    opts.innerHTML = "";
+    q.options.forEach((opt, i) => {
+      const btn = document.createElement("button");
+      btn.className = "quizOption";
+      btn.textContent = opt;
+      btn.style.animationDelay = (i * 0.05) + "s";
+      btn.addEventListener("click", () => {
+        if (currentQuestion === QUESTIONS.length - 1) {
+          requestFullscreenSafe();
+        }
+        btn.style.background = "rgba(168, 85, 247, 0.35)";
+        btn.style.borderColor = "#a855f7";
+        setTimeout(() => pickAnswer(), 150);
+      });
+      opts.appendChild(btn);
+    });
+  }
+
+  async function pickAnswer() {
+    currentQuestion++;
+    if (currentQuestion >= QUESTIONS.length) {
+      $("quizBar").style.width = "100%";
+      await sleep(300);
+      await fadeSwap(() => showScreen("scr-analysis"));
+      await runAnalysis();
+    } else {
+      renderQuestion();
+    }
+  }
+
+  async function runAnalysis() {
+    const log = $("analysisLog");
+    log.innerHTML = "";
+    for (const line of ANALYSIS_LINES) {
+      if (aborted) return;
+      const div = document.createElement("div");
+      div.textContent = "> " + line;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      await wait(420);
+    }
+    await wait(400);
+    await fadeSwap(() => showScreen("scr-result"));
+    await animateResult();
+  }
+
+  /* ОБНОВЛЕНО: Резкий переход на ANSI и на череп */
+  async function animateResult() {
+    const num = $("resultNum");
+
+    num.style.color = "#fff";
+    num.textContent = "87";
+    num.style.animation = "none";
+    void num.offsetWidth;
+    num.style.animation = "popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)";
+    await wait(1400);
+
+    for (let i = 0; i < 50; i++) {
+      if (aborted) return;
+      num.textContent = String(Math.floor(Math.random() * 999) - 100);
+      num.style.color = ["#fff", "#ef4444", "#a855f7", "#fbbf24"][i % 4];
+      await sleep(50 + Math.random() * 60);
+    }
+
+    num.style.color = "#ef4444";
+    num.textContent = "100";
+    await sleep(500);
+    num.textContent = "40";
+    await sleep(350);
+    num.textContent = "10";
+    await sleep(250);
+    num.textContent = "1";
+    await sleep(300); // Уменьшено с 600
+
+    $("scr-result").classList.add("skull-mode");
+    await sleep(50); // Резкий уход цифр
+
+    // 1. РЕЗКИЙ ПЕРЕХОД ДО КОСЫ
+    $("ansiArt").textContent = ANSI_ART;
+    $("ansiStage").classList.add("show");
+    await sleep(1000); // Коса висит ровно 1 секунду
+
+    // 2. РЕЗКИЙ ПЕРЕХОД ПОСЛЕ КОСЫ
+    $("ansiStage").classList.remove("show");
+    await sleep(10); // Микро-задержка, чтобы браузер отрисовал скрытие
+    
+    startSkull();
+    await wait(19000);
+  }
+
+  function startSkull() {
+    const skull = $("skullArt");
+    const laugh = $("laughText");
+    const stage = $("skullStage");
+
+    requestFullscreenSafe();
+    if (!document.fullscreenElement) {
+      const onceFullscreen = () => {
+        requestFullscreenSafe();
+        stage.removeEventListener("click", onceFullscreen);
+        stage.removeEventListener("touchstart", onceFullscreen);
+      };
+      stage.addEventListener("click", onceFullscreen);
+      stage.addEventListener("touchstart", onceFullscreen, { passive: true });
+    }
+
+    skull.textContent = normalizeFrame(SKULL_FRAMES[0]);
+    stage.classList.add("show");
+    fitSkull();
+
+    skullFrameIndex = 0;
+    skullBaseInterval = 230;
+    glitchMultiplier = 1;
+    laugh.textContent = PHRASES[0];
+
+    scheduleSkullFrame();
+  }
+
+  function scheduleSkullFrame() {
+    if (aborted) return;
+
+    const skull = $("skullArt");
+    const laugh = $("laughText");
+
+    skull.textContent = normalizeFrame(SKULL_FRAMES[skullFrameIndex % SKULL_FRAMES.length]);
+    fitSkull();
+
+    if (skullFrameIndex % 6 === 0) {
+      const p = Math.floor(skullFrameIndex / 6) % PHRASES.length;
+      laugh.textContent = PHRASES[p];
+    }
+    skullFrameIndex++;
+
+    skullBaseInterval += (Math.random() - 0.5) * 40;
+    skullBaseInterval = Math.max(140, Math.min(320, skullBaseInterval));
+
+    if (Math.random() < GLITCH_PROBABILITY) {
+      triggerRandomGlitch();
+    }
+
+    const delay = skullBaseInterval * glitchMultiplier;
+    skullTimer = setTimeout(scheduleSkullFrame, delay);
+  }
+
+  function pickGlitchType() {
+    const total = GLITCH_TYPES.reduce((s, g) => s + g.weight, 0);
+    let r = Math.random() * total;
+    for (const g of GLITCH_TYPES) {
+      r -= g.weight;
+      if (r <= 0) return g;
+    }
+    return GLITCH_TYPES[0];
+  }
+
+  function triggerRandomGlitch() {
+    const skull = $("skullArt");
+    const laugh = $("laughText");
+    const g = pickGlitchType();
+
+    skull.classList.add('glitch-' + g.name);
+    if (g.laugh) laugh.classList.add('glitch-laugh');
+    if (g.speedMul) glitchMultiplier = g.speedMul;
+
+    const dur = g.duration[0] + Math.random() * (g.duration[1] - g.duration[0]);
+    glitchTimeouts.push(setTimeout(() => {
+      skull.classList.remove('glitch-' + g.name);
+      if (g.laugh) laugh.classList.remove('glitch-laugh');
+      if (g.speedMul) glitchMultiplier = 1;
+    }, dur));
+  }
+
+  function clearAllGlitches() {
+    const skull = $("skullArt");
+    const laugh = $("laughText");
+    GLITCH_TYPES.forEach(g => skull.classList.remove('glitch-' + g.name));
+    laugh.classList.remove('glitch-laugh');
+    glitchTimeouts.forEach(id => clearTimeout(id));
+    glitchTimeouts = [];
+    glitchMultiplier = 1;
+  }
+
+  function stopSkull() {
+    if (skullTimer) clearTimeout(skullTimer);
+    skullTimer = null;
+    clearAllGlitches();
+  }
+
+  function fitSkull() {
+    const wrap = $("skullWrap");
+    const skull = $("skullArt");
+    if (!wrap || !skull) return;
+    skull.style.setProperty('--sk-scale', '1');
+    const available = wrap.clientWidth;
+    const natural = skull.scrollWidth;
+    if (available > 0 && natural > 0) {
+      const scale = Math.min(1, available / natural);
+      skull.style.setProperty('--sk-scale', String(scale));
+    }
+  }
+
+  $("startBtn").addEventListener("click", () => {
+    showScreen("scr-quiz");
+    renderQuestion();
+  });
+
+  window.addEventListener("resize", fitSkull);
+</script>
+</body>
+</html>
